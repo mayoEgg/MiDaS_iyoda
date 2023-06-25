@@ -7,6 +7,7 @@ import utils
 import cv2
 import argparse
 import time
+import video
 
 import numpy as np
 
@@ -233,6 +234,10 @@ if __name__ == "__main__":
                              'openvino_midas_v21_small_256'
                         )
 
+    parser.add_argument('-v', '--video_file',
+                        default=None,
+                        help='video_file name'
+                        )
     parser.add_argument('-s', '--side',
                         action='store_true',
                         help='Output images contain RGB and depth images side by side'
@@ -272,6 +277,10 @@ if __name__ == "__main__":
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
 
+    video.video_2_frames(args.video_file)
+
     # compute depth maps
     run(args.input_path, args.output_path, args.model_weights, args.model_type, args.optimize, args.side, args.height,
         args.square, args.grayscale)
+
+    video.write_video(args.video_file)
