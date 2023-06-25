@@ -234,6 +234,7 @@ if __name__ == "__main__":
                              'openvino_midas_v21_small_256'
                         )
 
+    #動画ファイルの名前を指定する
     parser.add_argument('-v', '--video_file',
                         default=None,
                         help='video_file name'
@@ -277,10 +278,12 @@ if __name__ == "__main__":
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
 
+    #input_videoにある動画をフレームごとに画像に変換して、inputディレクトリに配置する
     video.video_2_frames(args.video_file)
 
     # compute depth maps
     run(args.input_path, args.output_path, args.model_weights, args.model_type, args.optimize, args.side, args.height,
         args.square, args.grayscale)
 
+    #outputにある推定された画像を動画に変換して、output_videoに配置する
     video.write_video(args.video_file)
