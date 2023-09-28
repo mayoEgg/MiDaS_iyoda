@@ -6,17 +6,20 @@ from moviepy.editor import *
 import cv2
 
 #画像を動画にする
-def write_video(video_file, video_path=r'./input_video/'):
+def write_video(io_flag):
 
     #元動画のFPSを取得する
-    cap = cv2.VideoCapture(video_path + video_file)
-    video_fps = cap.get(cv2.CAP_PROP_FPS)
-    print(video_fps)
-    duretion = 1 / cap.get(cv2.CAP_PROP_FPS)
-    print(duretion)
-
-    # inputディレクトリ以下の拡張子が.jpgのファイル名リストを一括取得
-    file_list = glob.glob(r'./output/*.png')
+    #cap = cv2.VideoCapture(video_path + video_file)
+    #video_fps = cap.get(cv2.CAP_PROP_FPS)
+    #print(video_fps)
+    #duretion = 1 / cap.get(cv2.CAP_PROP_FPS)
+    #print(duretion)
+    duretion = 1
+    if io_flag == "False":
+        # inputディレクトリ以下の拡張子が.jpgのファイル名リストを一括取得
+        file_list = glob.glob(r'./input/*.png')
+    else :
+        file_list = glob.glob(r'./output/*.png')
     # ファイル名リストを昇順にソート
     file_list.sort()
 
@@ -28,9 +31,9 @@ def write_video(video_file, video_path=r'./input_video/'):
 
     # スライドショーの動画像を作成する処理
     concat_clip = concatenate_videoclips(clips, method="compose")
-    concat_clip.write_videofile(r"./output_video/output.mp4", 
-                                fps=video_fps,
-                                write_logfile=True,
+    concat_clip.write_videofile("./output_video/output.mp4", 
+                                fps=1,
+                                write_logfile=False,
                                 )
 
 

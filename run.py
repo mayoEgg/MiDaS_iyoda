@@ -239,6 +239,15 @@ if __name__ == "__main__":
                         default=None,
                         help='video_file name'
                         )
+    
+    parser.add_argument('-mo', '--movie',
+                        default=None)
+    parser.add_argument('-iof', '--io_flag',
+                        default=True)
+    
+    parser.add_argument('-wv', '--write_video',
+                        default=None,
+                        help='only write_video')
     parser.add_argument('-s', '--side',
                         action='store_true',
                         help='Output images contain RGB and depth images side by side'
@@ -271,19 +280,25 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    if args.model_weights is None:
-        args.model_weights = default_models[args.model_type]
+    #video.video_2_frames(args.video_file)
 
-    # set torch options
-    torch.backends.cudnn.enabled = True
-    torch.backends.cudnn.benchmark = True
+    if args.write_video is None:
+        if args.model_weights is None:
+            args.model_weights = default_models[args.model_type]
 
-    #input_videoにある動画をフレームごとに画像に変換して、inputディレクトリに配置する
-    video.video_2_frames(args.video_file)
+        # set torch options
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
 
-    # compute depth maps
-    run(args.input_path, args.output_path, args.model_weights, args.model_type, args.optimize, args.side, args.height,
-        args.square, args.grayscale)
+        #input_videoにある動画をフレームごとに画像に変換して、inputディレクトリに配置する
+        if args.movie != None:
+            video.video_2_frames(args.video_file) 
 
+
+        # compute depth maps
+        run(args.input_path, args.output_path, args.model_weights, args.model_type, args.optimize, args.side, args.height,
+            args.square, args.grayscale)
+        
     #outputにある推定された画像を動画に変換して、output_videoに配置する
-    video.write_video(args.video_file)
+    if args.movie != None:
+        video.write_video(args.io_flag)
