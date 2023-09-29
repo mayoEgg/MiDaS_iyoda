@@ -123,13 +123,12 @@ def run(input_path, output_path, model_path, model_type="dpt_beit_large_512", op
     # select device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Device: %s" % device)
-
+    
     model, transform, net_w, net_h = load_model(device, model_path, model_type, optimize, height, square)
 
     # get input
     if input_path is not None:
-        image_names = glob.glob(os.path.join(input_path, "*"))
-        num_images = len(image_names)
+        image_name = input_path
     else:
         print("No input path specified. Grabbing images from camera.")
 
@@ -142,31 +141,30 @@ def run(input_path, output_path, model_path, model_type="dpt_beit_large_512", op
     if input_path is not None:
         if output_path is None:
             print("Warning: No output path specified. Images will be processed but not shown or stored anywhere.")
-        for index, image_name in enumerate(image_names):
+        ###########################################################################
+        print("  Processing {}".format(image_name))
 
-            print("  Processing {} ({}/{})".format(image_name, index + 1, num_images))
+        # input
+        original_image_rgb = utils.read_image(image_name)  # in [0, 1]
+        image = transform({"image": original_image_rgb})["image"]
+    
+        # compute
+        with torch.no_grad():
+            prediction = process(device, model, model_type, image, (net_w, net_h), original_image_rgb.shape[1::-1],
+                                    optimize, False)
 
-            # input
-            original_image_rgb = utils.read_image(image_name)  # in [0, 1]
-            image = transform({"image": original_image_rgb})["image"]
-
-            # compute
-            with torch.no_grad():
-                prediction = process(device, model, model_type, image, (net_w, net_h), original_image_rgb.shape[1::-1],
-                                     optimize, False)
-
-            # output
-            if output_path is not None:
-                filename = os.path.join(
-                    output_path, os.path.splitext(os.path.basename(image_name))[0] + '-' + model_type
-                )
-                if not side:
-                    utils.write_depth(filename, prediction, grayscale, bits=2)
-                else:
-                    original_image_bgr = np.flip(original_image_rgb, 2)
-                    content = create_side_by_side(original_image_bgr*255, prediction, grayscale)
-                    cv2.imwrite(filename + ".png", content)
-                utils.write_pfm(filename + ".pfm", prediction.astype(np.float32))
+        # output
+        if output_path is not None:
+            filename = os.path.join(
+                output_path, os.path.splitext(os.path.basename(image_name))[0] + '-' + model_type
+            )
+            if not side:
+                utils.write_depth(filename, prediction, grayscale, bits=2)
+            else:
+                original_image_bgr = np.flip(original_image_rgb, 2)
+                content = create_side_by_side(original_image_bgr*255, prediction, grayscale)
+                cv2.imwrite(filename + ".png", content)
+            utils.write_pfm(filename + ".pfm", prediction.astype(np.float32))
 
     else:
         with torch.no_grad():
@@ -204,101 +202,18 @@ def run(input_path, output_path, model_path, model_type="dpt_beit_large_512", op
         print()
 
     print("Finished")
+    return filename + '.png'
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('-i', '--input_path',
-                        default=None,
-                        help='Folder with input images (if no input path is specified, images are tried to be grabbed '
-                             'from camera)'
-                        )
-
-    parser.add_argument('-o', '--output_path',
-                        default=None,
-                        help='Folder for output images'
-                        )
-
-    parser.add_argument('-m', '--model_weights',
-                        default=None,
-                        help='Path to the trained weights of model'
-                        )
-
-    parser.add_argument('-t', '--model_type',
-                        default='dpt_beit_large_512',
-                        help='Model type: '
-                             'dpt_beit_large_512, dpt_beit_large_384, dpt_beit_base_384, dpt_swin2_large_384, '
-                             'dpt_swin2_base_384, dpt_swin2_tiny_256, dpt_swin_large_384, dpt_next_vit_large_384, '
-                             'dpt_levit_224, dpt_large_384, dpt_hybrid_384, midas_v21_384, midas_v21_small_256 or '
-                             'openvino_midas_v21_small_256'
-                        )
-
-    #動画ファイルの名前を指定する
-    parser.add_argument('-v', '--video_file',
-                        default=None,
-                        help='video_file name'
-                        )
-    
-    parser.add_argument('-mo', '--movie',
-                        default=None)
-    parser.add_argument('-iof', '--io_flag',
-                        default=True)
-    
-    parser.add_argument('-wv', '--write_video',
-                        default=None,
-                        help='only write_video')
-    parser.add_argument('-s', '--side',
-                        action='store_true',
-                        help='Output images contain RGB and depth images side by side'
-                        )
-
-    parser.add_argument('--optimize', dest='optimize', action='store_true', help='Use half-float optimization')
-    parser.set_defaults(optimize=False)
-
-    parser.add_argument('--height',
-                        type=int, default=None,
-                        help='Preferred height of images feed into the encoder during inference. Note that the '
-                             'preferred height may differ from the actual height, because an alignment to multiples of '
-                             '32 takes place. Many models support only the height chosen during training, which is '
-                             'used automatically if this parameter is not set.'
-                        )
-    parser.add_argument('--square',
-                        action='store_true',
-                        help='Option to resize images to a square resolution by changing their widths when images are '
-                             'fed into the encoder during inference. If this parameter is not set, the aspect ratio of '
-                             'images is tried to be preserved if supported by the model.'
-                        )
-    parser.add_argument('--grayscale',
-                        action='store_true',
-                        help='Use a grayscale colormap instead of the inferno one. Although the inferno colormap, '
-                             'which is used by default, is better for visibility, it does not allow storing 16-bit '
-                             'depth values in PNGs but only 8-bit ones due to the precision limitation of this '
-                             'colormap.'
-                        )
-
-    args = parser.parse_args()
-
-
-    #video.video_2_frames(args.video_file)
+def midas(input_path=None, output_path=None, model_weights=None, model_type='dpt_beit_large_512'):
     #python run.py --model_type <model_type>(dpt_beit_large_512) --input_path input --output_path output
-    if args.write_video is None:
-        if args.model_weights is None:
-            args.model_weights = default_models[args.model_type]
+    if model_weights is None:
+        model_weights = default_models[model_type]
 
-        # set torch options
-        torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.benchmark = True
+    # set torch options
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = True
 
-        #input_videoにある動画をフレームごとに画像に変換して、inputディレクトリに配置する
-        if args.movie != None:
-            video.video_2_frames(args.video_file) 
-
-
-        # compute depth maps
-        run(args.input_path, args.output_path, args.model_weights, args.model_type, args.optimize, args.side, args.height,
-            args.square, args.grayscale)
-        
-    #outputにある推定された画像を動画に変換して、output_videoに配置する
-    if args.movie != None:
-        video.write_video(args.io_flag)
+    # compute depth maps
+    return run(input_path, output_path, model_weights, model_type)
+    

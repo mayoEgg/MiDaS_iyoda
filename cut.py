@@ -13,7 +13,7 @@ def create_dict(filepaths):
     
     return file_dict
 
-def croppe_image(original_width, original_height, value_x, value_y, value_width, value_height, img, file_name, number):
+def croppe_image(original_width, original_height, value_x, value_y, value_width, value_height, img, number):
     x = int(original_width * value_x / 100)
     y = int(original_height * value_y / 100)
     width = int(original_width * value_width / 100)
@@ -21,26 +21,46 @@ def croppe_image(original_width, original_height, value_x, value_y, value_width,
     #画像切り抜き
     cropped_image = img[y:y+height, x:x+width]
     #画像保存
-    cv2.imwrite('cropped_images/' + str(file_name) + '_' + str(number) + '.jpg', cropped_image)
+    cv2.imwrite('test_img/' + str(number) + '.jpg', cropped_image)
 
-#forward_car/imagesディレクトリのすべての画像の読み込み
-image_filepaths = create_dict(glob.glob(r'./forward_car/images/*'))
-json_filepaths = create_dict(glob.glob(r'./forward_car/json/*'))
-midas_filepaths = create_dict(glob.glob(r'./output/*'))
+def all_cut():
+    #forward_car/imagesディレクトリのすべての画像の読み込み
+    image_filepaths = create_dict(glob.glob(r'./forward_car/images/*'))
+    json_filepaths = create_dict(glob.glob(r'./forward_car/json/*'))
+    midas_filepaths = create_dict(glob.glob(r'./output/*'))
 
-for file_name in image_filepaths.keys() & json_filepaths.keys():
-    #画像読み込み
-    original_img = cv2.imread(image_filepaths[file_name])
-    midas_img = cv2.imread(midas_filepaths[file_name])
-    #jsonファイルの読み込み
-    with open(json_filepaths[file_name]) as f:
-        json_data = json.load(f)
+    for file_name in image_filepaths.keys() & json_filepaths.keys():
+        #画像読み込み
+        original_img = cv2.imread(image_filepaths[file_name])
+        midas_img = cv2.imread(midas_filepaths[file_name])
+        #jsonファイルの読み込み
+        with open(json_filepaths[file_name]) as f:
+            json_data = json.load(f)
 
-    number = 1
+        number = 0
+        #jsonファイルを参照して画像を切り抜く
+        for item in json_data['annotations'][0]['result']:
+            value = item['value']
+            if value['rectanglelabels'][0] == '前方車':
+                number += 1
+                croppe_image(item['original_width'], item['original_height'], value['x'], value['y'], value['width'], value['height'], original_img, file_name, number)
+                croppe_image(midas_img.shape[1], midas_img.shape[0], value['x'], value['y'], value['width'], value['height'], midas_img, 'midas' + file_name, number)
+                
+
+def cut(img_pass, json_data, id=None):
+    midas_img = cv2.imread(img_pass)
+    number = 0
     #jsonファイルを参照して画像を切り抜く
     for item in json_data['annotations'][0]['result']:
         value = item['value']
-        if value['rectanglelabels'][0] == '前方車':
-            croppe_image(item['original_width'], item['original_height'], value['x'], value['y'], value['width'], value['height'], original_img, file_name, number)
-            croppe_image(midas_img.shape[1], midas_img.shape[0], value['x'], value['y'], value['width'], value['height'], midas_img, 'midas' + file_name, number)
-            number += 1
+        
+        if id == None:
+            if value['rectanglelabels'][0] == '前方車' :
+                number += 1
+                croppe_image(midas_img.shape[1], midas_img.shape[0], value['x'], value['y'], value['width'], value['height'], midas_img, number)
+        else :
+            if value['rectanglelabels'][0] == '前方車' and item['id'] == id:
+                number += 1
+                croppe_image(midas_img.shape[1], midas_img.shape[0], value['x'], value['y'], value['width'], value['height'], midas_img, number)
+        
+    return number
